@@ -148,6 +148,14 @@ export type MeltQuotePayload = {
 	 * Request to be melted to
 	 */
 	request: string;
+	/**
+	 * optional parameters for melt quotes
+	 */
+	options?: {
+		mpp?: {
+			amount: number
+		}
+	}
 };
 
 /**
