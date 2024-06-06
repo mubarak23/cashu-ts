@@ -101,6 +101,51 @@ describe('mint api', () => {
 		expect(returnChangeSpent).toBeDefined();
 		expect(returnChangeSpent).toEqual([]);
 	});
+
+	test('pay local mpp invoice', async () => {
+		const mint = new CashuMint(mintUrl);
+		const wallet = new CashuWallet(mint, { unit });
+		const request = await wallet.mintQuote(100);
+		const tokens = await wallet.mintTokens(100, request.quote);
+
+		// expect no fee because local invoice
+		const mintQuote = await wallet.mintQuote(10);
+		const quote = await wallet.meltQuote(mintQuote.request, {mpp:{amount:3}});
+		const quote2 = await wallet.meltQuote(mintQuote.request, {mpp:{amount:7}});
+		const fee = quote.fee_reserve;
+		expect(fee).toBe(0);
+
+		// get the quote from the mint
+		const quote_ = await wallet.getMeltQuote(quote.quote);
+		expect(quote_).toBeDefined();
+
+		const sendResponse = await wallet.send(3, tokens.proofs);
+		tokens.proofs = sendResponse.returnChange
+		const sendResponse2 = await wallet.send(7, tokens.proofs);
+		const response = await wallet.payLnInvoice(mintQuote.request, sendResponse.send, quote);
+		const response2 = await wallet.payLnInvoice(mintQuote.request, sendResponse2.send, quote2);
+		expect(response).toBeDefined();
+		expect(response2).toBeDefined();
+		// expect that we have received the fee back, since it was internal
+		expect(response.change.reduce((a, b) => a + b.amount, 0)).toBe(fee);
+		expect(response2.change.reduce((a, b) => a + b.amount, 0)).toBe(fee);
+
+		// check states of spent and kept proofs after payment
+		const sentProofsSpent = await wallet.checkProofsSpent(sendResponse.send);
+		const sentProofsSpent2 = await wallet.checkProofsSpent(sendResponse2.send);
+		expect(sentProofsSpent).toBeDefined();
+		expect(sentProofsSpent2).toBeDefined();
+		// expect that all proofs are spent, i.e. sendProofsSpent == sendResponse.send
+		expect(sentProofsSpent).toEqual(sendResponse.send);
+		expect(sentProofsSpent2).toEqual(sendResponse2.send);
+		// expect none of the sendResponse.returnChange to be spent
+		const returnChangeSpent = await wallet.checkProofsSpent(sendResponse.returnChange);
+		const returnChangeSpent2 = await wallet.checkProofsSpent(sendResponse2.returnChange);
+		expect(returnChangeSpent).toBeDefined();
+		expect(returnChangeSpent2).toBeDefined();
+		expect(returnChangeSpent).toEqual([]);
+		expect(returnChangeSpent2).toEqual([]);
+	});
 	test('pay external invoice', async () => {
 		const mint = new CashuMint(mintUrl);
 		const wallet = new CashuWallet(mint, { unit });
@@ -132,6 +177,8 @@ describe('mint api', () => {
 		expect(returnChangeSpent).toBeDefined();
 		expect(returnChangeSpent).toEqual([]);
 	});
+
+	
 	test('test send tokens exact without previous split', async () => {
 		const mint = new CashuMint(mintUrl);
 		const wallet = new CashuWallet(mint, { unit });

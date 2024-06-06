@@ -153,9 +153,9 @@ export type MeltQuotePayload = {
 	 */
 	options?: {
 		mpp?: {
-			amount: number
-		}
-	}
+			amount: number;
+		};
+	};
 };
 
 /**
@@ -182,7 +182,6 @@ export type MeltQuoteResponse = {
 	 * Timestamp of when the quote expires
 	 */
 	expiry: number;
-
 } & ApiError;
 
 /**
@@ -298,7 +297,7 @@ export type MintQuotePayload = {
  */
 export type MintQuoteResponse = {
 	/**
-	 * Payment request 
+	 * Payment request
 	 */
 	request: string;
 	/**
@@ -307,7 +306,7 @@ export type MintQuoteResponse = {
 	quote: string;
 	/**
 	 * Whether the quote has been paid.
-	*/
+	 */
 	paid: boolean;
 	/**
 	 * Timestamp of when the quote expires
