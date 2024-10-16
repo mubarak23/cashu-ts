@@ -22,7 +22,9 @@ import {
 	SerializedBlindedSignature,
 	MeltQuoteState,
 	CheckStateEntry,
-	Preferences
+	Preferences,
+	PaymentRequestTransportType,
+	PaymentRequestPayload
 } from './model/types/index.js';
 import {
 	bytesToNumber,
@@ -46,6 +48,7 @@ import {
 } from '@cashu/crypto/modules/client/NUT09';
 import { createP2PKsecret, getSignedProofs } from '@cashu/crypto/modules/client/NUT11';
 import { type Proof as NUT11Proof } from '@cashu/crypto/modules/common/index';
+import { PaymentRequest } from './model/PaymentRequest.js';
 
 /**
  * Class that represents a Cashu wallet.
@@ -627,6 +630,49 @@ class CashuWallet {
 			return state && state.state === CheckStateEnum.SPENT;
 		});
 	}
+
+	async payRequestPost(
+		pr: PaymentRequest,
+		proofs: Array<Proof>,
+		opts?: { amount?: number; memo?: string }
+	) {
+		const httpTransport = pr.getTransport(PaymentRequestTransportType.POST);
+		if (!httpTransport) {
+			throw new Error('payment request does not support POST transport');
+		}
+		const amount = pr.amount || opts?.amount;
+		if (!amount) {
+			throw new Error('no amount was set');
+		}
+		if (pr.unit && pr.unit !== this.unit) {
+			throw new Error('unsupported unit');
+		}
+		if (pr.mints && !pr.mints.includes(this.mint.mintUrl)) {
+			throw new Error('mint not accepted by payment request');
+		}
+		const { returnChange, send } = await this.send(amount, proofs);
+		const resObj: PaymentRequestPayload = {
+			unit: this.unit,
+			mint: this.mint.mintUrl,
+			proofs: send
+		};
+		if (pr.id) {
+			resObj.id = pr.id;
+		}
+		if (opts?.memo) {
+			resObj.memo = opts.memo;
+		}
+		const res = await fetch(httpTransport.target, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(resObj)
+		});
+		if (res.status >= 300) {
+			throw new Error('Failed to send payment');
+		}
+		return returnChange;
+	}
+
 	private splitReceive(
 		amount: number,
 		amountAvailable: number
